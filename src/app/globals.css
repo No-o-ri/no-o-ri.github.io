@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-line: var(--line);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+:root {
+  --bg: #080b10;
+  --surface: #111720;
+  --fg: #f3f5f7;
+  --muted: #a5afbd;
+  --accent: #42d9d1;
+  --accent-2: #6d85ff;
+  --line: #26313d;
+  --font-sans-stack: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono-stack: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --nav-h: 64px;
+}
+
+html {
+  background: var(--bg);
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans-stack);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.1; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.container-x {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2.5rem);
+}
+
+.eyebrow {
+  font-family: var(--font-mono-stack);
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.display {
+  font-size: clamp(2.5rem, 1.5rem + 5vw, 5.5rem);
+  font-weight: 650;
+}
+
+.h2 { font-size: clamp(1.75rem, 1.2rem + 2.4vw, 3rem); font-weight: 600; }
+
+.placeholder-note {
+  font-family: var(--font-mono-stack);
+  font-size: 0.875rem;
+  color: #e0b252;
+}
+
+/* Circuit pulse motif: a line with a traveling light. */
+@keyframes pulse-travel {
+  from { stroke-dashoffset: 200; }
+  to   { stroke-dashoffset: 0; }
+}
+.pulse-line { stroke-dasharray: 40 160; animation: pulse-travel 2.4s linear infinite; }
+
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes footer-pulse {
+  from { transform: translateX(-30%); }
+  to   { transform: translateX(130%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

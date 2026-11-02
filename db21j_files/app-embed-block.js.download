@@ -1,0 +1,340 @@
+document.addEventListener('DOMContentLoaded', () => {
+  positionAppEmbedBlock();
+  updatePriceAndSellingPlanInfo();
+  showAddCodeSnippet();
+});
+
+document
+  .querySelectorAll('.shopify_subscriptions_app_block input[type="radio"]')
+  .forEach((radio) => {
+    radio.addEventListener('change', function () {
+      handleRadioButtonChange(this);
+    });
+  });
+
+let isDebutTheme = document.querySelector('.price__regular') ? true : false;
+
+function showAddCodeSnippet() {
+  if (document.querySelector('.subscriptions_app_embed_block')) {
+    return;
+  }
+
+  const container = document.querySelector(
+    isDebutTheme
+      ? '.product-form__controls-group'
+      : '.product-single__add-to-cart',
+  );
+
+  const banner = document.querySelector(
+    '.shopify_subscriptions_no_app_block_warning_banner',
+  );
+
+  if (!container || !banner) {
+    return;
+  }
+
+  const viewCodeEditorBtn = document.querySelector(
+    '.shopify_subscriptions_no_app_block_warning_banner__button',
+  );
+
+  const {shop, theme} = window.Shopify;
+  viewCodeEditorBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.open(
+      `https://${shop}/admin/themes/${theme.id}?key=sections%2Fproduct-template.liquid`,
+      '_blank',
+    );
+  });
+
+  banner.classList.remove(
+    'shopify_subscriptions_no_app_block_warning_banner--hidden',
+  );
+
+  isDebutTheme ? container.append(banner) : container.prepend(banner);
+}
+
+function positionAppEmbedBlock() {
+  let container =
+    document.querySelector('.shopify_subscriptions_app_block_container') ||
+    document.querySelector('.shopify_subscriptions_warning_banner');
+
+  const appBlockContainer = document.querySelector(
+    '.subscriptions_app_embed_block',
+  );
+
+  if (!container || !appBlockContainer) {
+    return;
+  }
+
+  appBlockContainer.appendChild(container);
+
+  addVariantChangeEventListener(appBlockContainer);
+}
+
+function addVariantChangeEventListener(appBlockContainer) {
+  let previousUrl = '';
+  const observer = new MutationObserver(() => {
+    if (window.location.href !== previousUrl) {
+      previousUrl = window.location.href;
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('variant')) {
+        showHideSellingPlanForm(urlParams.get('variant'), appBlockContainer);
+      }
+    }
+  });
+  observer.observe(document, {subtree: true, childList: true});
+}
+
+function showHideSellingPlanForm(selectedVariantId, productInfo) {
+  const selectedSellingPlanForm = productInfo?.querySelector(
+    `section[data-variant-id="${selectedVariantId}"]`,
+  );
+
+  selectedSellingPlanForm?.classList.remove(
+    'shopify_subscriptions_app_block--hidden',
+  );
+  const unselectedSellingPlanForms = productInfo?.querySelectorAll(
+    `.shopify_subscriptions_app_block:not([data-variant-id="${selectedVariantId}"])`,
+  );
+  unselectedSellingPlanForms?.forEach((element) => {
+    element.classList.add('shopify_subscriptions_app_block--hidden');
+  });
+
+  updatePriceAndSellingPlanInfo();
+}
+
+function handleRadioButtonChange(selectedRadioButton) {
+  const {sellingPlanGroupId, radioType} = selectedRadioButton.dataset;
+  const currentSellingPlanForm = selectedRadioButton.closest(
+    '.shopify_subscriptions_app_block',
+  );
+
+  const productInfo = document.querySelector(
+    '#shopify-section-product-template',
+  );
+
+  const selectedSellingPlanID = document?.querySelector(
+    '.selected-selling-plan-id',
+  );
+
+  currentSellingPlanForm
+    .querySelectorAll('input[type="radio"]')
+    .forEach((radioButton) => {
+      if (radioButton !== selectedRadioButton) {
+        radioButton.checked = false;
+      }
+    });
+
+  if (sellingPlanGroupId) {
+    const parentInput = currentSellingPlanForm.querySelector(
+      `input[id="${sellingPlanGroupId}"]`,
+    );
+    selectSellingPlanAndGroupRadios({
+      inputToChange: [selectedRadioButton, parentInput],
+    });
+    selectedSellingPlanID.value = selectedRadioButton.dataset.sellingPlanId;
+    updatePrice(selectedRadioButton, productInfo);
+  } else if (radioType !== 'one_time_purchase') {
+    const childInput = selectedRadioButton
+      .closest('.shopify_subscriptions_app_block_label')
+      .querySelector(
+        '.shopify_subscriptions_app_block_label_children input[type="radio"]',
+      );
+    selectSellingPlanAndGroupRadios({
+      inputToChange: [selectedRadioButton, childInput],
+    });
+    selectedSellingPlanID.value = childInput.dataset.sellingPlanId;
+    updatePrice(childInput, productInfo);
+  } else {
+    selectedSellingPlanID.value = null;
+    updatePrice(selectedRadioButton, productInfo);
+  }
+}
+
+function selectSellingPlanAndGroupRadios({inputToChange = []} = {}) {
+  inputToChange.forEach((element) => {
+    element.checked = true;
+  });
+}
+
+function updatePrice(inputRadion, productInfo) {
+  if (isDebutTheme) {
+    updatePriceDebut(inputRadion, productInfo);
+  } else {
+    updatePriceBrooklyn(inputRadion, productInfo);
+  }
+}
+
+function getScript(inputRadion, productInfo) {
+  let scriptName;
+  if (inputRadion.dataset.radioType === 'one_time_purchase') {
+    scriptName = `subscriptions_money_with_currency_one_time_purchase_${inputRadion.dataset.variantId}`;
+  } else {
+    scriptName = `subscriptions_money_with_currency_${inputRadion.dataset.sellingPlanGroupId}_${inputRadion.dataset.sellingPlanId}`;
+  }
+
+  const sellingPlanAllocationPrices = JSON.parse(
+    productInfo.querySelector(`script[id="${scriptName}"]`).textContent,
+  );
+
+  return {
+    comparedPrice: sellingPlanAllocationPrices.comparedAtPrice ?? null,
+    price: sellingPlanAllocationPrices.price ?? null,
+    sellingPlanAdjustment: inputRadion.dataset.sellingPlanAdjustment,
+  };
+}
+
+function updatePriceDebut(inputRadion, productInfo) {
+  const {comparedPrice, price, sellingPlanAdjustment} = getScript(
+    inputRadion,
+    productInfo,
+  );
+
+  const priceRegularElement = productInfo.querySelector('.price__regular');
+  const priceSaleElement = productInfo.querySelector('.price__sale');
+  const priceSaleRegularElementMoney = priceSaleElement.querySelector(
+    '.price-item--regular',
+  );
+  const priceSaleElementMoney =
+    priceSaleElement.querySelector('.price-item--sale');
+  const hasComparedPrice = comparedPrice ? true : false;
+
+  if (!hasComparedPrice || comparedPrice === price) {
+    priceRegularElement.style.display = 'block';
+    priceSaleElement.style.display = 'none';
+    productInfo.querySelector('.price').classList.remove('price--on-sale');
+  } else {
+    priceRegularElement.style.display = 'none';
+    priceSaleElement.style.display = 'block';
+    priceSaleRegularElementMoney.innerHTML = comparedPrice;
+    priceSaleElementMoney.innerHTML = price;
+    productInfo.querySelector('.price').classList.add('price--on-sale');
+  }
+
+  if (sellingPlanAdjustment) {
+    if (sellingPlanAdjustment !== '0') {
+      showHideSubsSalesBadge({productInfo, badge: 'subscription'});
+    } else {
+      showHideSubsSalesBadge({
+        productInfo,
+        badge: hasComparedPrice ? 'sale' : 'subscription',
+      });
+    }
+  } else {
+    showHideSubsSalesBadge({
+      productInfo,
+      badge: hasComparedPrice && comparedPrice !== price ? 'sale' : 'none',
+    });
+  }
+}
+
+function updatePriceBrooklyn(inputRadion, productInfo) {
+  const {comparedPrice, price} = getScript(inputRadion, productInfo);
+
+  const priceRegularElement = productInfo.querySelector(
+    '.product-single__price',
+  );
+
+  const priceWrapper = productInfo.querySelector(
+    '.product-single__price--wrapper',
+  );
+  const compareAtEl = priceWrapper.querySelector(
+    '.product-single__price--compare-at',
+  );
+  const hasComparedPrice = comparedPrice ? true : false;
+
+  if (!hasComparedPrice) {
+    priceWrapper.classList.add('hide');
+    priceRegularElement.style.display = 'block';
+    priceRegularElement.innerHTML = price;
+    priceRegularElement.classList.remove('on-sale');
+  } else {
+    priceWrapper.classList.remove('hide');
+    compareAtEl.innerHTML = comparedPrice;
+    priceRegularElement.style.display = 'block';
+    priceRegularElement.innerHTML = price;
+    priceRegularElement.classList.add('on-sale');
+  }
+}
+
+function showHideSubsSalesBadge({productInfo, badge = 'none'}) {
+  const subscriptionsBadge = productInfo.querySelector(
+    '.price__badge--subscription',
+  );
+  const salesBadge = productInfo.querySelector(
+    '.price__badge.price__badge--sale',
+  );
+
+  if (!salesBadge) {
+    return;
+  }
+
+  if (!subscriptionsBadge && salesBadge) {
+    const subscriptionI18nText =
+      document.getElementById('subscription-i18n').textContent;
+    const clone = salesBadge.cloneNode(true);
+    clone.classList.add('price__badge--subscription');
+    clone.textContent = subscriptionI18nText;
+    salesBadge.parentNode.appendChild(clone);
+  }
+  const subsBadgeDisplay = productInfo.querySelector(
+    '.price__badge--subscription',
+  );
+
+  switch (badge) {
+    case 'subscription':
+      subsBadgeDisplay.style.display = 'inline-block';
+      salesBadge.style.display = 'none';
+      break;
+    case 'sale':
+      subsBadgeDisplay.style.display = 'none';
+      salesBadge.style.display = 'inline-block';
+      break;
+    default:
+      subsBadgeDisplay.style.display = 'none';
+      salesBadge.style.display = 'none';
+      break;
+  }
+}
+
+function updatePriceAndSellingPlanInfo() {
+  const productInfo = document.querySelector(
+    '#shopify-section-product-template',
+  );
+
+  const activePurchaseOption = productInfo.querySelector(
+    '.shopify_subscriptions_app_block:not(.shopify_subscriptions_app_block--hidden)',
+  );
+
+  if (!activePurchaseOption) return;
+
+  const sellingPlanHiddenInput = productInfo.querySelector(
+    '.selected-selling-plan-id',
+  );
+
+  if (isDebutTheme) {
+    productInfo
+      .querySelector('[id^="ProductSelect-product-template"]')
+      .appendChild(sellingPlanHiddenInput);
+  } else {
+    productInfo
+      .querySelector('[id^="ProductSelect--product-template"]')
+      .appendChild(sellingPlanHiddenInput);
+  }
+
+  const activePurchaseOptionsRadio = activePurchaseOption.querySelector(
+    'input[type="radio"][data-radio-type="selling_plan"]:checked',
+  );
+
+  if (activePurchaseOptionsRadio) {
+    sellingPlanHiddenInput.value =
+      activePurchaseOptionsRadio.dataset.sellingPlanId;
+    updatePrice(activePurchaseOptionsRadio, productInfo);
+  } else {
+    const activePurchaseOptionsRadio = activePurchaseOption.querySelector(
+      'input[type="radio"][data-radio-type="one_time_purchase"]:checked',
+    );
+    updatePrice(activePurchaseOptionsRadio, productInfo);
+    sellingPlanHiddenInput.value = null;
+  }
+}
